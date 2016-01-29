@@ -124,14 +124,14 @@
 - name: Write init.d script
   template:
     src: init.d.influxd.j2
-    dest: "/etc/init.d/influxd"
+    dest: "/etc/init.d/influxdb"
     mode: 0755
   tags:
     - influxdb
 
 - name: Start influxdb service
   service:
-    name: influxd
+    name: influxdb
     state: started
   tags:
     - influxdb
