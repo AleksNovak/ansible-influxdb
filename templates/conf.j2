@@ -37,6 +37,7 @@ reporting-disabled = {{influxdb_reporting_disabled}}
   heartbeat-timeout = "{{influxdb_heartbeat_timeout}}"
   leader-lease-timeout = "{{influxdb_leader_lease_timeout}}"
   commit-timeout = "{{influxdb_commit_timeout}}"
+  {% if influxdb_peers is defined %}peers = {{ influxdb_peers|safe }}{% endif %}
 
 ###
 ### [data]
