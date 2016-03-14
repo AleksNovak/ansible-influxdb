@@ -93,7 +93,6 @@
 - name: Run config update
   command: "sudo {{influxdb_influxd_bin}} config -config {{influxdb_generated_config}}"
   register: influxdb_merged_config
-  when: write_config | changed
   tags:
     - influxdb
 
