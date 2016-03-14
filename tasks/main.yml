@@ -103,7 +103,6 @@
     dest: "{{influxdb_config_file}}"
     group: "{{influxdb_group}}"
     owner: "{{influxdb_user}}"
-  when: influxdb_merged_config | changed
   tags:
     - influxdb
 
