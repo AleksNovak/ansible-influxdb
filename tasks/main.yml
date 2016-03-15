@@ -98,7 +98,8 @@
 
 - name: Write merged config
   copy:
-    remote_src: "{{influxdb_generated_config}}"
+    remote_src: True
+    src: "{{influxdb_generated_config}}"
     dest: "{{influxdb_config_file}}"
     group: "{{influxdb_group}}"
     owner: "{{influxdb_user}}"
