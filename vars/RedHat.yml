@@ -1,0 +1,16 @@
+# vim: ft=ansible :
+---
+# Specify influxdb version
+__influxdb_package_version: "0.9.6.1-1"
+# If set to No, will exclude InfluxDB upgrade
+__influxdb_package_update: No
+
+# Default user/group
+__influxdb_user: influxdb
+__influxdb_group: influxdb
+
+# Default paths/files
+__influxdb_pid: /var/run/influxdb/influxdb.pid
+__influxdb_base_data_dir: /var/lib/influxdb
+__influxdb_influxd_bin: /usr/bin/influxd
+__influxdb_scripts_dir: /usr/lib/influxdb/scripts

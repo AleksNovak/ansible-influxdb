@@ -1,3 +1,4 @@
+# vim: ft=ansible :
 ---
 galaxy_info:
   author: mtchavez

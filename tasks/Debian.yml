@@ -1,0 +1,20 @@
+# vim: ft=ansible :
+---
+# TODO: Use md5sum to check download
+- name: Download version
+  get_url:
+    url: "{{influxdb_dl_url}}"
+    dest: "{{influxdb_pkg}}"
+
+- name: Install package
+  command: "dpkg --skip-same-version -i {{influxdb_pkg}}"
+  register: dpkg_result
+  changed_when: "dpkg_result.stdout.startswith('Selecting')"
+
+- name: Write init.d script
+  template:
+    src: init.d.influxd.j2
+    dest: "/etc/init.d/influxdb"
+    mode: 0755
+  tags:
+    - influxdb

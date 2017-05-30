@@ -1,136 +1,118 @@
+# vim: ft=ansible :
 ---
+- name: Include OS specific variable
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Set facts
+  set_fact:
+    "{{ 'influxdb_' + item }}" : "{{ vars['__influxdb_' + item] }}"
+  with_items:
+    - package_version
+    - user
+    - group
+    - data_dir
+    - meta_dir
+    - hh_dir
+    - wal_dir
+    - generated_config
+    - config_file
+    - influxd_bin
+  register:
+  when: ( vars['influxdb_' + item] is undefined)
+
+- include: "{{ ansible_os_family }}.yml"
 
 - name: Create influxdb group
   group:
-    name: "{{influxdb_group}}"
+    name: "{{ influxdb_group }}"
     state: present
-  tags:
-    - influxdb
 
 - name: Create influxdb user
   user:
-    name: "{{influxdb_user}}"
-    group: "{{influxdb_group}}"
+    name: "{{ influxdb_user }}"
+    group: "{{ influxdb_group }}"
     state: present
-  tags:
-    - influxdb
 
-# TODO: Use md5sum to check download
-- name: Download version
-  get_url:
-    url: "{{influxdb_dl_url}}"
-    dest: "{{influxdb_pkg}}"
-  tags:
-    - influxdb
-
-- name: Install package
-  command: "dpkg --skip-same-version -i {{influxdb_pkg}}"
-  register: dpkg_result
-  changed_when: "dpkg_result.stdout.startswith('Selecting')"
-  when: ansible_distribution in ['Ubuntu', 'Debian']
-  tags:
-    - influxdb
-
-- name: Create data dir
+- name: Create directories
   file:
-    path: "{{influxdb_data_dir}}"
+    path: "{{ item }}"
     state: directory
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
-
-- name: Create meta dir
-  file:
-    path: "{{influxdb_meta_dir}}"
-    state: directory
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
-
-- name: Create hh dir
-  file:
-    path: "{{influxdb_hh_dir}}"
-    state: directory
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
-
-- name: Create wal dir
-  file:
-    path: "{{influxdb_wal_dir}}"
-    state: directory
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
-
-- name: Create config directory
-  file:
-    path: "{{influxdb_config_dir}}"
-    state: directory
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
+    group: "{{ influxdb_group }}"
+    owner: "{{ influxdb_user }}"
+  with_items:
+    - "{{ influxdb_data_dir }}"
+    - "{{ influxdb_meta_dir }}"
+    - "{{ influxdb_hh_dir }}"
+    - "{{ influxdb_wal_dir }}"
+    - "{{ influxdb_config_dir }}"
 
 - name: Write config
   template:
     src: conf.j2
-    dest: "{{influxdb_generated_config}}"
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
+    dest: "{{ influxdb_generated_config }}"
+    group: "{{ influxdb_group }}"
+    owner: "{{ influxdb_user }}"
   register: write_config
-  notify:
-    - restart influxdb
-  tags:
-    - influxdb
 
 # TODO: Find out why this doesn't work
 # TODO: Update to use Ansible 2.0 run as instead of sudo
 - name: Run config update
-  command: "sudo {{influxdb_influxd_bin}} config -config {{influxdb_generated_config}}"
+  command: "{{ influxdb_influxd_bin }} config -config {{ influxdb_generated_config }}"
   register: influxdb_merged_config
-  tags:
-    - influxdb
 
 - name: Write merged config
   copy:
     remote_src: True
-    src: "{{influxdb_generated_config}}"
-    dest: "{{influxdb_config_file}}"
-    group: "{{influxdb_group}}"
-    owner: "{{influxdb_user}}"
-  tags:
-    - influxdb
+    src: "{{ influxdb_generated_config }}"
+    dest: "{{ influxdb_config_file }}"
+    group: "{{ influxdb_group }}"
+    owner: "{{ influxdb_user }}"
 
 - name: Ensure directories have correct permissions
   file:
-    path: "{{item }}"
-    owner: "{{influxdb_user}}"
-    group: "{{influxdb_group}}"
+    path: "{{ item }}"
+    owner: "{{ influxdb_user }}"
+    group: "{{ influxdb_group }}"
     recurse: yes
   with_items:
-    - "{{influxdb_meta_dir}}"
-    - "{{influxdb_data_dir}}"
-    - "{{influxdb_hh_dir}}"
-    - "{{influxdb_wal_dir}}"
-  tags:
-    - influxdb
+    - "{{ influxdb_meta_dir }}"
+    - "{{ influxdb_data_dir }}"
+    - "{{ influxdb_hh_dir }}"
+    - "{{ influxdb_wal_dir }}"
 
-- name: Write init.d script
-  template:
-    src: init.d.influxd.j2
-    dest: "/etc/init.d/influxdb"
-    mode: 0755
+- block:
+  - name: Start master node
+    service:
+      name: influxdb
+      state: started
+      enabled: yes
+    when: influxdb_cluster_master == ansible_hostname
+  - name: Wait for master
+    wait_for:
+      host: "{{ ansible_hostname }}"
+      port: 8088
+      state: started
+    when: influxdb_cluster_master == ansible_hostname
+  - name: Join the cluster
+    lineinfile:
+      path: /etc/default/influxdb
+      create: yes
+      regexp: '^INFLUXD_OPTS='
+      line: "INFLUXD_OPTS=\"-join {{ influxdb_cluster_master }}:8088\""
+    register: influxdb_cluster_join
+    when:
+    - influxdb_cluster_master != ansible_hostname
+  - name: Add node to the cluster
+    service:
+      name: influxdb
+      state: started
+      enabled: yes
+    when:
+    - influxdb_cluster_master != ansible_hostname
+    - influxdb_cluster_join.changed
+  rescue:
+  - debug:
+      var: influxdb_master_node
+  when: influxdb_cluster
   tags:
-    - influxdb
-
-- name: Start influxdb service
-  service:
-    name: influxdb
-    state: started
-  tags:
-    - influxdb
+    - influxdb_debug

@@ -1,0 +1,35 @@
+# vim: ft=ansible :
+---
+- name: Install yum-versionlock
+  package:
+    name: yum-versionlock
+    state: present
+
+- name: Add influxdb repository
+  yum_repository:
+    name: influxdb
+    description: InfluxDB Repository - RHEL \$releasever
+    file: influxdb
+    baseurl:
+      'https://repos.influxdata.com/rhel/\$releasever/\$basearch/stable'
+    enabled: yes
+    gpgcheck: yes
+    gpgkey: https://repos.influxdata.com/influxdb.key
+
+- name: Install InfluxDB
+  yum:
+    name: "influxdb-{{ influxdb_package_version }}"
+    state: present
+
+- name: Check versionlock state
+  command: /usr/bin/yum versionlock list
+  register: influxdb_yum_versionlock
+  check_mode: no
+  args:
+    warn: no
+
+- name: Lock
+  command: "/usr/bin/yum versionlock influxdb-{{ influxdb_package_version }}"
+  when: influxdb_package_version not in influxdb_yum_versionlock.stdout
+  args:
+    warn: no

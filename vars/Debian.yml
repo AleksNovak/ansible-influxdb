@@ -1,0 +1,7 @@
+# vim: ft=ansible :
+---
+__influxdb_package_version: "0.9.6.1"
+__influxdb_package_checksums: "bd13fc5f21ec7f598b603f2a19b4005f"
+__influxdb_package_arch: "amd64"
+__influxdb_package_url: "https://s3.amazonaws.com/influxdb/influxdb_{{ __influxdb_package_number }}_{{ __influxdb_package_arch }}.deb"
+__influxdb_package_pkg: "/usr/local/src/influxdb_{{ __influxdb_package_version }}_{{ __influxdb_package_arch }}.deb"
